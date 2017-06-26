@@ -159,7 +159,7 @@ def init_kernel_static(img, imgbase):
                 symchar = struct.unpack_from("B", img, sym_token_table_offset + tmpindex)[0]
 
         #print sym, hex(struct.unpack_from("<Q", img, addresses_offset + i * 8)[0])
-        f.writelines(sym+" "+hex(struct.unpack_from("<Q", img, addresses_offset + i * 8)[0])+'\n')
+        f.writelines(sym[1:]+" "+sym[0]+" "+hex(struct.unpack_from("<Q", img, addresses_offset + i * 8)[0])+'\n')
         sym=''
                 #sym = sym+struct.unpack_from("s", img, sym_token_table_offset+tmpindex)[0]
 
