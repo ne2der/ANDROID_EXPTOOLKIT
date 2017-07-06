@@ -81,6 +81,8 @@ import os
 import sys
 import struct
 import math
+import gzip
+import shutil
 
 
 def adjustpage(offset):
@@ -112,9 +114,9 @@ class Boothead():
 
 
 class ImgExtractor():
-    def __init__(self, imgpath):
+    def __init__(self, imgpath,output_dir):
         self.imgpath = imgpath
-
+        self.outputdir = output_dir
         self.imgdata = open(self.imgpath, 'rb').read()
         self.imghead = Boothead()
         self.pageshift = 12
@@ -142,41 +144,95 @@ class ImgExtractor():
             print "not a bootimg"
             return
 
+
         kernelend = self.imghead.page_size+self.imghead.kernel_size
         kernel = self.imgdata[self.imghead.page_size:kernelend]
 
+        #1.maybe the kernel is compressed and contain self decompress code
+        #2.kernel  maybe pad with dtb file 
 
-        f = open("testkernel",'wb')
-        f.write(kernel)
-        #maybe the kernel is compressed and contain self decompress code
-        #if so skip decompress code and decompress the data to get orignal kernel file
+        #compressed kernel  (AKA  Image.gz )
+
+        if struct.unpack_from(">I",kernel,0)[0] == 0x1f8b0800:
+            f = open(os.path.join(self.outputdir,'Image_gz'),'wb')
+            f.write(kernel)
+            f.close
+            shutil.copy(os.path.join(self.outputdir,'Image_gz'),os.path.join(self.outputdir,'Image.gz'))
+            os.system('gzip -d -f %s'  %   os.path.join(self.outputdir,'Image.gz'))
+            #g = gzip.GzipFile('rb', fileobj=open(os.path.join(self.outputdir,'Image'), 'rb'))
+            #g.read()
+            #open(os.path.join(self.outputdir,'Imagetest'),'wb').write(g.read())
+
+        # self-decompress kernel (AKA zImage)
+        elif kernel.startswith("0000A0E10000A0E10000A0E10000A0E10000A0E10000A0E10000A0E10000A0E1".decode('hex')):
+            print 'get compress'
+            f = open(os.path.join(self.outputdir, 'zImage'), 'wb')
+            f.write(kernel)
+            f.close
+            kerneloff = kernel.find("1F8B0800".decode('hex'))
+
+            f = open(os.path.join(self.outputdir, 'Image_gz'), 'wb')
+            f.write(kernel[kerneloff:])
+            f.close
+
+            shutil.copy(os.path.join(self.outputdir, 'Image_gz'), os.path.join(self.outputdir, 'Image.gz'))
+            os.system('gzip -d -fq %s' % os.path.join(self.outputdir, 'Image.gz'))
+        # orignal kernel (Image)
+        else:
+            f = open(os.path.join(self.outputdir, 'Image_gz'), 'wb')
+            f.write(kernel)
+            f.close
+
+
+
+
+
+
+
+
+
+
+
+
 
         self.pageshift=int(math.log(self.imghead.page_size,2))
 
 
         #adjust offset
         ramdiskstart = ((kernelend>>self.pageshift)<<self.pageshift)+self.imghead.page_size
-        print hex(ramdiskstart)
+
         ramdiskend = ramdiskstart+self.imghead.ramdisk_size
         ramdisk = self.imgdata[ramdiskstart:ramdiskend]
-        print hex(ramdiskstart+self.imghead.ramdisk_size)
-        f = open("testramdisk",'wb')
+
+
+        #maybe compressed not handle yet
+        f = open(os.path.join(self.outputdir,'ramdisk.img'),'wb')
         f.write(ramdisk)
 
-
-        secondstagestart = ((ramdiskend>>self.pageshift)<<self.pageshift)+self.imghead.page_size
-
-        print hex(secondstagestart)
-
-
-
+        '''second stage 
         
+        secondstagestart = ((ramdiskend>>self.pageshift)<<self.pageshift)+self.imghead.page_size
+        f = open(os.path.join(self.outputdir, 'secondstage'), 'wb')
+        
+        '''
+
+
+
+
+
+
 
 
 if __name__ == '__main__':
-    if len(sys.argv) < 2:
-        print "usage: python ImageExtractor.py  bootimg_path"
+    if len(sys.argv) < 3:
+        print "usage: python ImageExtractor.py  bootimg_path  output_dir"
+        exit(0)
     if os.path.exists(sys.argv[1]) != True:
         print "can not find img file"
-    imgextractor = ImgExtractor(sys.argv[1])
+        exit(0)
+    if os.path.isdir(sys.argv[2]) != True:
+        print "output dir is not ready"
+        exit(0)
+    imgextractor = ImgExtractor(sys.argv[1],sys.argv[2])
     imgextractor.Extractkernel()
+
