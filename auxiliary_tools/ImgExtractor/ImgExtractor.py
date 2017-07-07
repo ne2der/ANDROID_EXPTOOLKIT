@@ -149,7 +149,7 @@ class ImgExtractor():
         kernel = self.imgdata[self.imghead.page_size:kernelend]
 
         #1.maybe the kernel is compressed and contain self decompress code
-        #2.kernel  maybe pad with dtb file 
+        #2.kernel  maybe pad with dtb file
 
         #compressed kernel  (AKA  Image.gz )
 
@@ -176,10 +176,10 @@ class ImgExtractor():
             f.close
 
             shutil.copy(os.path.join(self.outputdir, 'Image_gz'), os.path.join(self.outputdir, 'Image.gz'))
-            os.system('gzip -d -fq %s' % os.path.join(self.outputdir, 'Image.gz'))
+            os.system('gzip -d -f -q %s' % os.path.join(self.outputdir, 'Image.gz'))
         # orignal kernel (Image)
         else:
-            f = open(os.path.join(self.outputdir, 'Image_gz'), 'wb')
+            f = open(os.path.join(self.outputdir, 'Image'), 'wb')
             f.write(kernel)
             f.close
 
